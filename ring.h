@@ -1,7 +1,7 @@
 #pragma once
-#include <deque>
+#include <deque> /* deque */
 #include <iterator> /* distance */
-#include <initializer_list>
+#include <initializer_list> /* initializer_list */
 #include <type_traits> /* decay_t  */
 #include <mutex> /* lock_guard scoped_lock */
 #include <condition_variable> /* condition_variable */
@@ -16,7 +16,7 @@ public:
     using lock_guard = std::lock_guard<std::mutex>;
     using unique_lock = std::unique_lock<std::mutex>;
 
-    Ring(size_t capacity = 100000) : _capacity(capacity) {}
+    Ring(size_t capacity = 10000) : _capacity(capacity) {}
 
     virtual ~Ring() {}
 
@@ -35,8 +35,9 @@ public:
 
     void resize(size_t size) {
         lock_guard lock(_mutex);
+        if (_capacity > size)
+            deque::resize(size);
         _capacity = size;
-        deque::resize(size);
     }
 
     void push_front(T &&value) {
@@ -117,7 +118,7 @@ public:
         const std::atomic_bool& stop) {
         unique_lock lock(_mutex);
         for (;;) {
-            if (_cv.wait_for(lock, 100ms, [this] {
+            if (_cv.wait_for(lock, 300ms, [this] {
                 return !deque::empty();
             })) {
                 break;
