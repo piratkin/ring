@@ -115,15 +115,17 @@ public:
     }
 
     std::optional<T> pop_front_wait(
-        const std::atomic_bool& stop) {
+        const std::atomic_bool& stop,
+        std::chrono::duration<double> duration = 100ms) {
         unique_lock lock(_mutex);
         for (;;) {
-            if (_cv.wait_for(lock, 300ms, [this] {
+            auto rc = _cv.wait_for(lock, duration, [&] {
                 return !deque::empty();
-            })) {
-                break;
-            } else if (!stop) {
+            });
+            if (stop || !rc) {
                 return std::nullopt;
+            } else {
+                break;
             }
         }
         T value = deque::front();
@@ -132,15 +134,17 @@ public:
     }
 
     std::optional<T> pop_back_wait(
-        const std::atomic_bool& stop) {
+        const std::atomic_bool& stop,
+        std::chrono::duration<double> duration = 100ms) {
         unique_lock lock(_mutex);
         for (;;) {
-            if (_cv.wait_for(lock, 100ms, [this] {
+            auto rc = _cv.wait_for(lock, duration, [&] {
                 return !deque::empty();
-            })) {
-                break;
-            } else if (!stop) {
+            });
+            if (stop || !rc) {
                 return std::nullopt;
+            } else {
+                break;
             }
         }
         T value = deque::back();
