@@ -115,14 +115,12 @@ public:
     }
 
     std::optional<T> pop_front_wait(
-        const std::atomic_bool& stop,
         std::chrono::duration<double> duration = 100ms) {
         unique_lock lock(_mutex);
         for (;;) {
-            auto rc = _cv.wait_for(lock, duration, [&] {
+            if (!_cv.wait_for(lock, duration, [&] {
                 return !deque::empty();
-            });
-            if (stop || !rc) {
+            })) {
                 return std::nullopt;
             } else {
                 break;
@@ -134,14 +132,12 @@ public:
     }
 
     std::optional<T> pop_back_wait(
-        const std::atomic_bool& stop,
         std::chrono::duration<double> duration = 100ms) {
         unique_lock lock(_mutex);
         for (;;) {
-            auto rc = _cv.wait_for(lock, duration, [&] {
+            if (!_cv.wait_for(lock, duration, [&] {
                 return !deque::empty();
-            });
-            if (stop || !rc) {
+            })) {
                 return std::nullopt;
             } else {
                 break;
@@ -152,25 +148,29 @@ public:
         return value;
     }
 
-    T pop_front_wait() {
-        unique_lock lock(_mutex);
-        _cv.wait(lock, [this] {
-            return !deque::empty();
-        });
-        T value = deque::front();
-        deque::pop_front();
-        return value;
-    }
-
-    T pop_back_wait() {
-        unique_lock lock(_mutex);
-        _cv.wait(lock, [this] {
-            return !deque::empty();
-        });
-        T value = deque::back();
-        deque::pop_back();
-        return value;
-    }
+//    std::optional<T> pop_front_wait() {
+//        unique_lock lock(_mutex);
+//        _cv.wait(lock, [this] {
+//            return !deque::empty();
+//        });
+//        if (deque::empty())
+//            return std::nullopt;
+//        T value = deque::front();
+//        deque::pop_front();
+//        return value;
+//    }
+//
+//    std::optional<T> pop_back_wait() {
+//        unique_lock lock(_mutex);
+//        _cv.wait(lock, [this] {
+//            return !deque::empty();
+//        });
+//        if (deque::empty())
+//            return std::nullopt;
+//        T value = deque::back();
+//        deque::pop_back();
+//        return value;
+//    }
 
     void swap(Ring& that) {
         if (this == &that) return;
