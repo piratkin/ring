@@ -5,6 +5,7 @@
 #include <type_traits> /* decay_t  */
 #include <mutex> /* lock_guard scoped_lock */
 #include <condition_variable> /* condition_variable */
+#include <optional> /* optional */
 
 using namespace std::chrono_literals;
 
@@ -18,7 +19,7 @@ public:
 
     Ring(size_t capacity = 10000) : _capacity(capacity) {}
 
-    virtual ~Ring() {}
+    virtual ~Ring() = default;
 
     Ring(std::initializer_list<T> list) : deque(list) {
         _capacity = std::distance(list.begin(), list.end());
@@ -100,7 +101,7 @@ public:
         lock_guard lock(_mutex);
         if (deque::empty())
             return std::nullopt;
-        T value = deque::front();
+        T value = std::move(deque::front());
         deque::pop_front();
         return value;
     }
@@ -109,68 +110,75 @@ public:
         lock_guard lock(_mutex);
         if (deque::empty())
             return std::nullopt;
-        T value = deque::back();
+        T value = std::move(deque::back());
+        deque::pop_back();
+        return value;
+    }
+
+    std::optional<T> pop_front_wait_for(
+        std::chrono::duration<double> duration = 100ms) {
+        unique_lock lock(_mutex);
+        for (;;) {
+            if (!_cv.wait_for(lock, duration, [&] {
+                return !deque::empty();
+            })) {
+                return std::nullopt;
+            } else {
+                break;
+            }
+        }
+        T value = std::move(deque::front());
+        deque::pop_front();
+        return value;
+    }
+
+    std::optional<T> pop_back_wait_for(
+        std::chrono::duration<double> duration = 100ms) {
+        unique_lock lock(_mutex);
+        for (;;) {
+            if (!_cv.wait_for(lock, duration, [&] {
+                return !deque::empty();
+            })) {
+                return std::nullopt;
+            } else {
+                break;
+            }
+        }
+
+        T value = std::move(deque::back());
         deque::pop_back();
         return value;
     }
 
     std::optional<T> pop_front_wait(
-        std::chrono::duration<double> duration = 100ms) {
+        const std::stop_token& token) {
         unique_lock lock(_mutex);
-        for (;;) {
-            if (!_cv.wait_for(lock, duration, [&] {
-                return !deque::empty();
-            })) {
-                return std::nullopt;
-            } else {
-                break;
-            }
-        }
-        T value = deque::front();
+        _cv.wait(lock, [&] {
+            return !deque::empty() ||
+                token.stop_requested();
+        });
+        if (deque::empty())
+            return std::nullopt;
+        T value = std::move(deque::front());
         deque::pop_front();
         return value;
     }
 
     std::optional<T> pop_back_wait(
-        std::chrono::duration<double> duration = 100ms) {
+       const std::stop_token&& token) {
         unique_lock lock(_mutex);
-        for (;;) {
-            if (!_cv.wait_for(lock, duration, [&] {
-                return !deque::empty();
-            })) {
-                return std::nullopt;
-            } else {
-                break;
-            }
+        _cv.wait(lock, [&] {
+            return !deque::empty() ||
+                token.stop_requested();
+        });
+        if (token.stop_requested() ||
+            deque::empty()) {
+            return std::nullopt;
         }
-        T value = deque::back();
+        T value = std::move(deque::back());
         deque::pop_back();
         return value;
     }
-
-//    std::optional<T> pop_front_wait() {
-//        unique_lock lock(_mutex);
-//        _cv.wait(lock, [this] {
-//            return !deque::empty();
-//        });
-//        if (deque::empty())
-//            return std::nullopt;
-//        T value = deque::front();
-//        deque::pop_front();
-//        return value;
-//    }
-//
-//    std::optional<T> pop_back_wait() {
-//        unique_lock lock(_mutex);
-//        _cv.wait(lock, [this] {
-//            return !deque::empty();
-//        });
-//        if (deque::empty())
-//            return std::nullopt;
-//        T value = deque::back();
-//        deque::pop_back();
-//        return value;
-//    }
 
     void swap(Ring& that) {
         if (this == &that) return;
@@ -225,7 +233,7 @@ public:
 
 private:
     size_t _capacity;
-    mutable std::mutex _mutex;
+    std::mutex _mutex;
     std::condition_variable _cv;
 };
 
