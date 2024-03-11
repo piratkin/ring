@@ -144,7 +144,34 @@ public:
                 break;
             }
         }
+        T value = std::move(deque::back());
+        deque::pop_back();
+        return value;
+    }
 
+    std::optional<T> pop_front_wait(
+        std::function<bool()> isRunning) {
+        unique_lock lock(_mutex);
+        _cv.wait(lock, [&] {
+            return !deque::empty() || !isRunning();
+        });
+        if (deque::empty())
+            return std::nullopt;
+        T value = std::move(deque::front());
+        deque::pop_front();
+        return value;
+    }
+
+    std::optional<T> pop_back_wait(
+        std::function<bool()> isRunning) {
+        unique_lock lock(_mutex);
+        _cv.wait(lock, [&] {
+            return !deque::empty() || !isRunning();
+        });
+        if (!isRunning() ||
+            deque::empty()) {
+            return std::nullopt;
+        }
         T value = std::move(deque::back());
         deque::pop_back();
         return value;
