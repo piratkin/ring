@@ -150,7 +150,7 @@ public:
     }
 
     std::optional<T> pop_front_wait(
-        std::function<bool()> isRunning) {
+        const std::function<bool()>& isRunning) {
         unique_lock lock(_mutex);
         _cv.wait(lock, [&] {
             return !deque::empty() || !isRunning();
@@ -163,7 +163,7 @@ public:
     }
 
     std::optional<T> pop_back_wait(
-        std::function<bool()> isRunning) {
+        const std::function<bool()>& isRunning) {
         unique_lock lock(_mutex);
         _cv.wait(lock, [&] {
             return !deque::empty() || !isRunning();
