@@ -229,6 +229,11 @@ public:
         return *this;
     }
 
+    void clear() {
+        deque::clear();
+        _cv.notify_one();
+    }
+
 // -----------------------------------------------------------------------------
 
     using std::deque<T, Allocator>::operator=;
